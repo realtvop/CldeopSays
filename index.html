@@ -314,7 +314,7 @@
                 
                 ctx.font = `bold ${FONT_SIZE_USER}px TwitterChirp`;
                 ctx.fillStyle = theme.text;
-                ctx.fillText(USERNAME, userX, userY);
+                ctx.fillText(USERNAME, userX, userY + 2);
 
                 const currentUsernameWidth = ctx.measureText(USERNAME).width;
                 const verifiedIconX = userX + currentUsernameWidth + 4;
@@ -329,7 +329,7 @@
 
                 ctx.font = `normal ${FONT_SIZE_USER}px TwitterChirp`;
                 ctx.fillStyle = theme.secondaryText;
-                ctx.fillText(HANDLE, userX, userY + FONT_SIZE_USER * 1.4);
+                ctx.fillText(HANDLE, userX, userY + FONT_SIZE_USER * 1.4 + 4);
                 
                 // 10. 绘制推文内容
                 ctx.font = `normal ${FONT_SIZE_TEXT}px TwitterChirp`;
