@@ -217,7 +217,6 @@
             const FONT_SIZE_USER = 15;
             const LINE_HEIGHT_TEXT = 1.4;
             
-            // 从 verified.txt 中提取的 SVG 路径
             const VERIFIED_SVG_PATH = "M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z";
             const verifiedIcon = new Path2D(VERIFIED_SVG_PATH);
 
@@ -229,7 +228,6 @@
                 showToast("头像加载失败");
             };
             
-            // 等待所有资源加载完毕, 然后首次绘制Canvas
             Promise.all([
                 avatar.decode(),
                 document.fonts.ready
@@ -240,26 +238,21 @@
 
             // --- 事件监听 ---
             textarea.addEventListener('input', drawCanvas);
-            themeSelector.addEventListener('change', drawCanvas); // 只需重绘Canvas
+            themeSelector.addEventListener('change', drawCanvas);
             downloadBtn.addEventListener('click', downloadImage);
             copyBtn.addEventListener('click', copyImage);
 
             // --- 核心函数 ---
 
-            /**
-             * 绘制整个 Canvas
-             */
             function drawCanvas() {
                 const text = textarea.value || textarea.placeholder;
-                const theme = getCanvasTheme(); // 使用专门为Canvas获取主题的函数
+                const theme = getCanvasTheme();
 
                 // --- 动态宽度计算 ---
                 const MAX_WIDTH = 580;
                 const MIN_WIDTH = 320; 
 
-                ctx.font = `normal ${FONT_SIZE_TEXT}px TwitterChirp`;
-                const textMetrics = ctx.measureText(text);
-
+                // 测量头部内容的宽度
                 ctx.font = `bold ${FONT_SIZE_USER}px TwitterChirp`;
                 const usernameWidth = ctx.measureText(USERNAME).width;
                 const verifiedIconWidth = (FONT_SIZE_USER * 1.1) + 4;
@@ -268,32 +261,45 @@
                 ctx.font = `normal ${FONT_SIZE_USER}px TwitterChirp`;
                 const handleWidth = ctx.measureText(HANDLE).width;
                 const headerContentWidth = Math.max(headerTopLineWidth, handleWidth);
-
                 const requiredHeaderWidth = PADDING + AVATAR_SIZE + 12 + headerContentWidth + PADDING;
-                const requiredTextWidth = PADDING + textMetrics.width + PADDING;
 
+                // 1. 先进行一次预换行，以找出最长的一行文本
+                const preliminaryTextLines = processTextForDrawing(text, MAX_WIDTH - PADDING * 2);
+                
+                // 2. 找出最长文本行的宽度
+                ctx.font = `normal ${FONT_SIZE_TEXT}px TwitterChirp`;
+                let maxTextLineWidth = 0;
+                preliminaryTextLines.forEach(line => {
+                    const lineWidth = ctx.measureText(line).width;
+                    if (lineWidth > maxTextLineWidth) {
+                        maxTextLineWidth = lineWidth;
+                    }
+                });
+                const requiredTextWidth = PADDING + maxTextLineWidth + PADDING;
+
+                // 3. 确定最终画布宽度
                 let canvasWidth = Math.max(requiredHeaderWidth, requiredTextWidth);
                 canvasWidth = Math.min(canvasWidth, MAX_WIDTH);
                 canvasWidth = Math.max(canvasWidth, MIN_WIDTH);
                 
-                // 1. 文本换行处理
+                // 4. 使用最终确定的宽度，进行正式的文本换行
                 const textLines = processTextForDrawing(text, canvasWidth - PADDING * 2);
                 
-                // 2. 计算动态高度
+                // 5. 计算动态高度
                 const headerHeight = PADDING + AVATAR_SIZE + 10;
                 const textHeight = textLines.length * FONT_SIZE_TEXT * LINE_HEIGHT_TEXT;
                 const calculatedHeight = headerHeight + textHeight + PADDING;
 
-                // 3. 设置 Canvas 尺寸
+                // 6. 设置 Canvas 尺寸
                 canvas.width = canvasWidth * DPI;
                 canvas.height = calculatedHeight * DPI;
                 ctx.scale(DPI, DPI);
 
-                // 4. 绘制背景
+                // 7. 绘制背景
                 ctx.fillStyle = theme.bg;
                 ctx.fillRect(0, 0, canvasWidth, calculatedHeight);
 
-                // 5. 绘制头像
+                // 8. 绘制头像
                 const avatarY = PADDING;
                 ctx.save();
                 ctx.beginPath();
@@ -302,7 +308,7 @@
                 ctx.drawImage(avatar, PADDING, avatarY, AVATAR_SIZE, AVATAR_SIZE);
                 ctx.restore();
 
-                // 6. 绘制用户名和 Handle
+                // 9. 绘制用户名和 Handle
                 const userX = PADDING + AVATAR_SIZE + 12;
                 const userY = avatarY + FONT_SIZE_USER;
                 
@@ -314,7 +320,7 @@
                 const verifiedIconX = userX + currentUsernameWidth + 4;
 
                 ctx.save();
-                ctx.translate(verifiedIconX, userY - FONT_SIZE_USER * 0.9);
+                ctx.translate(verifiedIconX, userY - FONT_SIZE_USER * 0.8);
                 const scale = (FONT_SIZE_USER * 1.1) / 22;
                 ctx.scale(scale, scale);
                 ctx.fillStyle = theme.accent;
@@ -325,7 +331,7 @@
                 ctx.fillStyle = theme.secondaryText;
                 ctx.fillText(HANDLE, userX, userY + FONT_SIZE_USER * 1.4);
                 
-                // 7. 绘制推文内容
+                // 10. 绘制推文内容
                 ctx.font = `normal ${FONT_SIZE_TEXT}px TwitterChirp`;
                 ctx.fillStyle = theme.text;
                 let textY = avatarY + AVATAR_SIZE + FONT_SIZE_TEXT + 10;
@@ -335,9 +341,6 @@
                 });
             }
 
-            /**
-             * 处理文本以进行绘制，支持手动换行和自动换行。
-             */
             function processTextForDrawing(text, maxWidth) {
                 const allLines = [];
                 const paragraphs = text.split('\n');
@@ -365,9 +368,6 @@
                 return allLines;
             }
 
-            /**
-             * 获取Canvas的主题配置
-             */
             function getCanvasTheme() {
                 const selectedTheme = themeSelector.value;
                 const isDeviceDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -381,9 +381,6 @@
                 }
             }
 
-            /**
-             * 下载 Canvas 为 PNG 图片
-             */
             function downloadImage() {
                 const link = document.createElement('a');
                 link.download = `tweet_by_${HANDLE}.png`;
@@ -391,9 +388,6 @@
                 link.click();
             }
 
-            /**
-             * 复制 Canvas 图片到剪贴板
-             */
             function copyImage() {
                 canvas.toBlob(blob => {
                     if (navigator.clipboard && navigator.clipboard.write) {
@@ -409,9 +403,6 @@
                 }, 'image/png');
             }
             
-            /**
-             * 显示一个提示消息
-             */
             function showToast(message) {
                 toast.textContent = message;
                 toast.classList.add('show');
